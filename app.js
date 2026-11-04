@@ -32,7 +32,6 @@ const touchDay = () => {   // daily streak: playing on consecutive days grows it
 };
 const finish = (id, coins) => { const k = uid(id), first = !S.done[k]; S.done[k] = true; if (first) S.coins += coins; touchDay(); save(); return first ? coins : 0; };
 
-const EX_ROUND = 12;
 const CHAT_ON = false;   // the AI chat stays hidden until the server has an API key
 const GAMES = ['gMatch', 'gFall', 'gListen', 'gSpeak', 'gType'];
 const PARTS = ['video', 'words', 'practice', 'grammar', 'exercises'];
@@ -61,7 +60,7 @@ function unit() {
     ${rowHtml('words', '📚', "So'zlar", u.words.length + " ta yangi so'z", tick('words'))}
     ${rowHtml('practice', '🗣', "So'z mashqi", 'Aytib va yozib mashq qiling', tick('practice'))}
     ${rowHtml('grammar', '📐', 'Grammatika', u.grammar.title, tick('grammar'))}
-    ${rowHtml('exercises', '✏️', 'Grammatika mashqlari', `${u.ex.length} ta mashq, har safar ${EX_ROUND} tasi`, tick('exercises'))}
+    ${rowHtml('exercises', '✏️', 'Grammatika mashqlari', `${u.ex.length} ta mashq`, tick('exercises'))}
     ${CHAT_ON ? rowHtml('chat', '🤖', 'Emma bilan suhbat', "Sun'iy intellekt bilan inglizcha yozishing", tick('chat')) : ''}
     <div class="sec">O'yinlar</div>
     ${rowHtml('gMatch', '🧩', 'Juftini top', "So'z va ma'nosini vaqtga qarshi juftlang", st('gMatch'))}
@@ -151,7 +150,7 @@ function grammar() {
     <div class="note">${esc(g.neg)}</div><div class="spacer"></div><button class="btn" data-finish="grammar:10">Tushundim (+10 🪙)</button></div>`;
 }
 let Q = [], qi = 0, wrong = 0, answered = false, built = [];
-function startEx() { Q = shuffle(U().ex).slice(0, EX_ROUND); qi = 0; wrong = 0; exercise(); }
+function startEx() { Q = shuffle(U().ex); qi = 0; wrong = 0; exercise(); }
 function exercise() {
   answered = false; built = [];
   const e = Q[qi], pct = qi / Q.length * 100;

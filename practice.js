@@ -14,7 +14,7 @@ document.addEventListener('submit', ev => {
 // ---- So'z mashqi: each word is either said aloud or written, the missed ones come back at the end
 screens.practice = () => {
   stopGame();
-  const q = pick(10).map((w, i) => ({ w, kind: ['say', 'write', 'hear'][i % 3] })); let i = 0, right = 0, firstCount = q.length;
+  const q = pick(pool().length).map((w, i) => ({ w, kind: ['say', 'write', 'hear'][i % 3] })); let i = 0, right = 0, firstCount = q.length;
   const next = () => { i++; if (i < q.length) return card(); const got = finish('practice', 10); result('Barakalla!', `${firstCount} ta so'zdan ${right} tasini birinchi urinishda topdingiz`, got); };
   const after = (it, ok) => { mark(it.w, ok); if (ok && i < firstCount) right++; if (!ok) q.push(it); };
   const reveal = it => `<div class="fb no">To'g'ri javob: ${esc(it.w.en)}</div>`;
