@@ -1,6 +1,6 @@
 // Speaking practice. Uses the browser's speech recognition where it exists; where it does not (many in-app browsers),
 // the learner records themselves, compares with the native voice and judges honestly. Answer checks for writing live here too.
-const CONTRACT = { "i'm": 'i am', "you're": 'you are', "he's": 'he is', "she's": 'she is', "we're": 'we are', "they're": 'they are', "what's": 'what is', "i've": 'i have', "isn't": 'is not' };
+const CONTRACT = { "i'm": 'i am', "you're": 'you are', "he's": 'he is', "she's": 'she is', "we're": 'we are', "they're": 'they are', "what's": 'what is', "i've": 'i have', "isn't": 'is not', "it's": 'it is', "there's": 'there is', "aren't": 'are not', "don't": 'do not', "doesn't": 'does not', "didn't": 'did not', "can't": 'can not', cannot: 'can not', "wasn't": 'was not', "weren't": 'were not' };
 const normText = s => String(s).toLowerCase().replace(/[’`]/g, "'").split(/\s+/).map(w => CONTRACT[w.replace(/[.,!?]/g, '')] || w).join(' ').replace(/[.,!?"']/g, '').replace(/\s+/g, ' ').trim();
 const isAnswer = (text, accepted) => accepted.some(a => normText(a) === normText(text));
 // words a recogniser commonly hears instead of a short English word

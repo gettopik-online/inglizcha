@@ -6,7 +6,9 @@ const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData ? Tele
 const hasCloud = TG && TG.isVersionAtLeast('6.9') && TG.CloudStorage;
 const save = () => {
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
-  if (hasCloud) TG.CloudStorage.setItem(KEY, JSON.stringify(S), () => {});   // survives a reinstall and follows the user across devices
+  if (!hasCloud) return;
+  const s = JSON.stringify(S);   // Telegram keeps at most 4096 characters per value: the weak-word list is the part we can lose
+  TG.CloudStorage.setItem(KEY, s.length > 4000 ? JSON.stringify({ ...S, weak: {} }) : s, () => {});   // survives a reinstall and follows the user across devices
 };
 const haptic = ok => { if (TG && TG.HapticFeedback) TG.HapticFeedback.notificationOccurred(ok ? 'success' : 'error'); };
 const syncBack = () => {   // inside Telegram the header's own back button replaces ours
@@ -35,6 +37,7 @@ const finish = (id, coins) => { const k = uid(id), first = !S.done[k]; S.done[k]
 const CHAT_ON = false;   // the AI chat stays hidden until the server has an API key
 const GAMES = ['gMatch', 'gFall', 'gListen', 'gSpeak', 'gType'];
 const PARTS = ['video', 'words', 'practice', 'grammar', 'exercises'];
+const partsOf = u => (u.video ? PARTS : PARTS.slice(1));
 const stars = (i, g) => (S.best && S.best[uidOf(i, g)]) || 0;
 const unlocked = i => !i || (S.done[uidOf(i - 1, 'words')] && GAMES.some(g => stars(i - 1, g)));
 const rowHtml = (go, ic, t, sub, right, extra = '') => `<button class="item" data-go="${go}" ${extra}><span class="ic">${ic}</span><span><b>${esc(t)}</b><small>${esc(sub)}</small></span>${right ? `<span class="tick">${right}</span>` : ''}</button>`;
@@ -47,7 +50,7 @@ function home() {
     <div class="sec">Darslar</div>
     ${D.units.map((u, i) => {
       if (!unlocked(i)) return `<button class="item locked" disabled><span class="ic">🔒</span><span><b>${i + 1}-unit: ${esc(u.title)}</b><small>Avval ${i}-unitda so'zlar va bitta o'yinni tugating</small></span></button>`;
-      const done = PARTS.filter(p => S.done[uidOf(i, p)]).length + GAMES.filter(g => stars(i, g)).length, all = PARTS.length + GAMES.length;
+      const parts = partsOf(u), done = parts.filter(p => S.done[uidOf(i, p)]).length + GAMES.filter(g => stars(i, g)).length, all = parts.length + GAMES.length;
       return rowHtml('unit', '📘', `${i + 1}-unit: ${u.title}`, `${done}/${all} bo'lim tugagan`, done === all ? '✓' : '', `data-unit="${i}"`);
     }).join('')}
   </div>`;
@@ -56,11 +59,11 @@ function unit() {
   const u = U(), tick = id => S.done[uid(id)] ? '✓' : '', st = g => '⭐'.repeat(stars(cu, g));
   $app.innerHTML = header(`${cu + 1}-unit: ${u.title}`, 'home') + `<div class="main">
     <div class="sec">O'rganish</div>
-    ${rowHtml('video', '🎬', 'Video dars', u.videoTitle, tick('video'))}
+    ${u.video ? rowHtml('video', '🎬', 'Video dars', u.videoTitle, tick('video')) : ''}
     ${rowHtml('words', '📚', "So'zlar", u.words.length + " ta yangi so'z", tick('words'))}
     ${rowHtml('practice', '🗣', "So'z mashqi", 'Aytib va yozib mashq qiling', tick('practice'))}
     ${rowHtml('grammar', '📐', 'Grammatika', u.grammar.title, tick('grammar'))}
-    ${rowHtml('exercises', '✏️', 'Grammatika mashqlari', `${u.ex.length} ta mashq`, tick('exercises'))}
+    ${rowHtml('exercises', '✏️', 'Grammatika mashqlari', exRun() ? `Davom eting: ${exRun().i}/${exRun().q.length}` : `${u.ex.length} ta mashq`, tick('exercises'))}
     ${CHAT_ON ? rowHtml('chat', '🤖', 'Emma bilan suhbat', "Sun'iy intellekt bilan inglizcha yozishing", tick('chat')) : ''}
     <div class="sec">O'yinlar</div>
     ${rowHtml('gMatch', '🧩', 'Juftini top', "So'z va ma'nosini vaqtga qarshi juftlang", st('gMatch'))}
@@ -150,9 +153,19 @@ function grammar() {
     <div class="note">${esc(g.neg)}</div><div class="spacer"></div><button class="btn" data-finish="grammar:10">Tushundim (+10 🪙)</button></div>`;
 }
 let Q = [], qi = 0, wrong = 0, answered = false, built = [];
-function startEx() { Q = shuffle(U().ex); qi = 0; wrong = 0; exercise(); }
+// A half-done round is kept on this device, so leaving does not restart a long list.
+const RUN_KEY = 'eng_exrun_v1';
+const runs = () => { try { return JSON.parse(localStorage.getItem(RUN_KEY)) || {}; } catch (e) { return {}; } };
+const setRun = v => { const r = runs(); if (v) r[uid('exercises')] = v; else delete r[uid('exercises')]; try { localStorage.setItem(RUN_KEY, JSON.stringify(r)); } catch (e) {} };
+function exRun() { const r = runs()[uid('exercises')]; return r && r.i > 0 && r.q.every(n => U().ex[n]) ? r : null; }
+function startEx() {
+  const r = exRun();
+  Q = r ? r.q.map(n => U().ex[n]) : shuffle(U().ex); qi = r ? r.i : 0; wrong = r ? r.w : 0;
+  exercise();
+}
 function exercise() {
   answered = false; built = [];
+  setRun({ q: Q.map(x => U().ex.indexOf(x)), i: qi, w: wrong });
   const e = Q[qi], pct = qi / Q.length * 100;
   let body = '';
   if (e.t === 'choose') body = `<p class="q">${esc(e.q)}</p>`;
@@ -210,7 +223,7 @@ document.addEventListener('click', ev => {
   if (d.build !== undefined && !answered) { built.push(d.build); return drawBuild(e); }
   if (d.unbuild !== undefined && !answered) { built.splice(+d.unbuild, 1); return drawBuild(e); }
   if (t.id === 'check' && !answered) { t.style.display = 'none'; return feedback(e, built.join(' ') === e.w.join(' '), e.w.join(' ')); }
-  if ('nextEx' in d) { qi++; if (qi < Q.length) return exercise(); return result('Barakalla!', wrong ? wrong + ' ta xato bilan tugatdingiz' : 'Xatosiz tugatdingiz!', finish('exercises', 20)); }
+  if ('nextEx' in d) { qi++; if (qi < Q.length) return exercise(); setRun(null); return result('Barakalla!', wrong ? wrong + ' ta xato bilan tugatdingiz' : 'Xatosiz tugatdingiz!', finish('exercises', 20)); }
 });
 if (TG) {
   document.body.classList.add('in-tg');
